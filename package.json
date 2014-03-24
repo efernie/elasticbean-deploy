@@ -1,0 +1,26 @@
+{
+  "name": "elasticbean-deploy",
+  "version": "0.0.0",
+  "description": "CLI tools to deploy applications to Elastic Beanstalk",
+  "scripts": {
+    "test": "npm test"
+  },
+  "preferGlobal": "true",
+  "bin": {
+    "elasticbean-deploy": "bin/index.js"
+  },
+  "keywords": [
+    "elastic",
+    "beanstalk",
+    "aws",
+    "amazon"
+  ],
+  "author": "efernie",
+  "license": "MIT",
+  "dependencies": {
+    "aws-sdk": "^2.0.0-rc12",
+    "minimist": "0.0.8",
+    "lodash": "^2.4.1",
+    "commander": "^2.1.0"
+  }
+}
