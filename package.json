@@ -1,7 +1,14 @@
 {
   "name": "elasticbean-deploy",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "CLI tools to deploy applications to Elastic Beanstalk",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/efernie/elasticbean-deploy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/efernie/elasticbean-deploy/issues"
+  },
   "scripts": {
     "test": "npm test"
   },
@@ -19,8 +26,11 @@
   "license": "MIT",
   "dependencies": {
     "aws-sdk": "^2.0.0-rc12",
-    "minimist": "0.0.8",
     "lodash": "^2.4.1",
-    "commander": "^2.1.0"
+    "commander": "^2.1.0",
+    "q": "^1.0.1",
+    "winston": "^0.7.3",
+    "moment": "^2.5.1",
+    "archiver": "^0.7.0"
   }
 }
