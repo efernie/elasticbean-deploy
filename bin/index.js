@@ -74,67 +74,15 @@ program
       application.checkApplication(elasticBeanstalk, appName)
         .then( function ( result ) {
           if ( result ) {
-            // appEnvironment.checkEnv(elasticBeanstalk, appName, _.keys(configFile.app.Environments)[0])
-              appEnvironment.createConfigTemplate( elasticBeanstalk, configFile, 'Project-Ligers')
+            // check then if not add config
+            appEnvironment.checkEnv(elasticBeanstalk, appName, _.keys(configFile.app.Environments)[0])
+              // appEnvironment.createConfigTemplate( elasticBeanstalk, configFile, 'Project-Ligers')
               .then( function ( result ) {
                 if ( result === true ) {
                   return logger.info('Already Initialized');
                 } else {
                   return logger.info('Initialized');
                 }
-
-                // if ( !result ) {
-
-                  // // should move check in to createbucket func
-                  // s3Bucket.checkBucket(s3, configFile.aws.Bucket)
-                  //   .then( function ( result ) {
-                  //     if ( !result ) {
-                  //       s3Bucket.createBucket(s3, configFile.aws.Bucket, '') // configFile.aws.Region for bucket
-                  //         .then( function ( result ) {
-                  //           console.log(result);
-                  //         })
-                  //     } else {
-                        // appEnvironment.createEnv(elasticBeanstalk, configFile)
-                        //   .then( function ( result ) { return winston.info('All Done Initializing') })
-                        //   .fail( function ( err ) { return winston.error(err) });
-
-                  //       // move this to deploy
-                  //       // s3Bucket.zipToBuffer('./')
-                  //       //   .then( function ( outputBuffer ) {
-                  //       //     var keyName = moment().unix() + 'projectliger.zip';
-                  //       //     var bucketParams = {
-                  //       //       Bucket: configFile.aws.Bucket,
-                  //       //       Key: keyName, // this is the name
-                  //       //       Body: outputBuffer,
-                  //       //       ContentType: 'application/zip',
-                  //       //       Metadata: {
-                  //       //         Name: 'projectliger.zip'
-                  //       //       }
-                  //       //     };
-                  //       //     s3.putObject(bucketParams, function ( err, data ) {
-                  //       //       if ( err ) return winston.error(err);
-                  //       //       console.log(data);
-                  //       //       var params = {
-                  //       //         ApplicationName: configFile.app.ApplicationName,
-                  //       //         VersionLabel: '0.0.1',
-                  //       //         AutoCreateApplication: true,
-                  //       //         Description: configFile.app.Description,
-                  //       //         SourceBundle: {
-                  //       //           S3Bucket: configFile.aws.Bucket,
-                  //       //           S3Key: keyName
-                  //       //         }
-                  //       //       };
-                  //       //       elasticBeanstalk.createApplicationVersion(params, function ( err, data ) {
-                  //       //         if ( err ) return logger.info('Error: ' + err);
-                  //       //         logger.info(data);
-                  //       //       });
-                  //       //     })
-                  //       //   })
-                  //     }
-                  //   })
-                // } else {
-                //   return logger.info('Initialized');
-                // }
               })
               .fail( function ( err ) {
                 return logger.error('Error: ' + err);
@@ -145,7 +93,19 @@ program
               Description: configFile.app.Description
             };
             application.createApplication(elasticBeanstalk, params)
-              .then( function ( result ) { /* move on */ })
+              .then( function ( result ) {
+                appEnvironment.createConfigTemplate( elasticBeanstalk, configFile, _.keys(configFile.app.Environments)[0]) // Project-Liger
+                .then( function ( result ) {
+                  if ( result === true ) {
+                    return logger.info('Already Initialized');
+                  } else {
+                    return logger.info('Initialized');
+                  }
+                })
+                .fail( function ( err ) {
+                  return logger.error('Error: ' + err);
+                })
+              })
               .fail( function ( err ) { return logger.error(err) });
           }
         })
