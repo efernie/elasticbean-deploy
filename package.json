@@ -32,5 +32,9 @@
     "winston": "^0.7.3",
     "moment": "^2.5.1",
     "archiver": "^0.7.0"
+  },
+  "devDependencies": {
+    "chai": "^1.9.1",
+    "mocha": "^1.18.2"
   }
 }

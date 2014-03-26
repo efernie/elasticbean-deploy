@@ -49,11 +49,11 @@ program.on('--help', function () {
   console.log(' Examples:');
   console.log('');
   console.log('   Initialize Application:');
-  console.log('     $ elasticbean-deploy init                    # Creates an application');
-  console.log('     $ elasticbean-deploy init -c somename.json   # Creates an application with different config file name');
+  console.log('     $ elasticbean-deploy init                         # Creates an application');
+  console.log('     $ elasticbean-deploy init -c somename.json        # Creates an application with different config file name');
   console.log('');
   console.log('   Deploy Application:');
-  console.log('     $ elasticbean-deploy deploy -                # Deploy application');
+  console.log('     $ elasticbean-deploy deploy -e <Environment Name> # Deploy application');
 });
 
 /**
@@ -125,6 +125,7 @@ program
 program
   .command('deploy')
   .description('Deploy ebs application')
+  .option('-e <name>')
   .action(function ( env ) {
     if ( !program.environment ) {
       logger.error('Error: Need environment name flag -e or --environment to deploy unless default is set');
@@ -132,55 +133,42 @@ program
     } else {
       var versionLabel = '0.0.1';
       // envname -> _.keys(configFile.app.Environments)[0]
+      var keyName = moment().unix() + '-projectliger' + '.zip';
+      s3Bucket.zipToBuffer('./', keyName)
+        .then( function ( outputBuffer ) {
+          var bucketParams = {
+            Bucket: configFile.aws.Bucket,
+            Key: keyName,
+            Body: outputBuffer,
+            ContentType: 'application/zip'
+          };
+          s3.putObject(bucketParams, function ( err, data ) {
+            if ( err ) return logger.error(err);
+            console.log(data);
+            var params = {
+              ApplicationName: configFile.app.ApplicationName,
+              VersionLabel: versionLabel,
+              AutoCreateApplication: true,
+              Description: configFile.app.Description,
+              SourceBundle: {
+                S3Bucket: configFile.aws.Bucket,
+                S3Key: keyName
+              }
+            };
+            elasticBeanstalk.createApplicationVersion(params, function ( err, data ) {
+              if ( err ) return logger.info('Error: ' + err);
+              logger.info(data);
+              // should check env
+              // // appEnvironment.checkEnv(elasticBeanstalk, configFile.app.ApplicationName, _.keys(configFile.app.Environments)[0] )
+              //
+              // need updateEnvironment but for zero downtime need to create one and switch cnames
+              appEnvironment.createEnv(elasticBeanstalk, configFile, versionLabel, program.environment)
+                .then( function ( result ) { return logger.info('All Done Initializing') })
+                .fail( function ( err ) { return logger.error(err) });
 
-      // check env goes avter put obj?
-      // appEnvironment.checkEnv(elasticBeanstalk, configFile.app.ApplicationName, _.keys(configFile.app.Environments)[0] )
-      //   .then( function ( result ) {
-      //     console.log(result);
-      //     var versionLabel = '0.0.1'; // have to set this from package.json file
-      //     if ( !result ) {
-      //       // create env
-      //       // carry version label from this to the createApplicationVersion
-      //       appEnvironment.createEnv(elasticBeanstalk, configFile, versionLabel, program.environment)
-      //         .then( function ( result ) { return winston.info('All Done Initializing') })
-      //         .fail( function ( err ) { return winston.error(err) });
-      //     } else {
-          var keyName = moment().unix() + '-projectliger' + '.zip';
-          s3Bucket.zipToBuffer('./', keyName)
-            .then( function ( outputBuffer ) {
-              var bucketParams = {
-                Bucket: configFile.aws.Bucket,
-                Key: keyName,
-                Body: outputBuffer,
-                ContentType: 'application/zip'
-              };
-              s3.putObject(bucketParams, function ( err, data ) {
-                if ( err ) return logger.error(err);
-                console.log(data);
-                var params = {
-                  ApplicationName: configFile.app.ApplicationName,
-                  VersionLabel: versionLabel,
-                  AutoCreateApplication: true,
-                  Description: configFile.app.Description,
-                  SourceBundle: {
-                    S3Bucket: configFile.aws.Bucket,
-                    S3Key: keyName
-                  }
-                };
-                elasticBeanstalk.createApplicationVersion(params, function ( err, data ) {
-                  if ( err ) return logger.info('Error: ' + err);
-                  logger.info(data);
-                  appEnvironment.createEnv(elasticBeanstalk, configFile, versionLabel, program.environment)
-                    .then( function ( result ) { return logger.info('All Done Initializing') })
-                    .fail( function ( err ) { return logger.error(err) });
-
-                });
-              })
-            })
-          // }
-        // })
-        // .fail( function ( err ) { return logger.error(err) });
-      // upload zip and createapp version
+            });
+          })
+        });
     }
   });
 
