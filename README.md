@@ -3,8 +3,9 @@
 [![GitHub version](https://badge.fury.io/gh/efernie%2Felasticbean-deploy.png)](http://badge.fury.io/gh/efernie%2Felasticbean-deploy)
 [![Dependency Status](https://gemnasium.com/efernie/elasticbean-deploy.svg)](https://gemnasium.com/efernie/elasticbean-deploy)
 
+# Warning
 This is very rough, I will be posting to npm soon.
-
+Also there are somethings speciffic to me testing this out so I wouldn't suggest using this right now
 Right now this is specifically for node.js deployments.
 
 ## Example Config File
