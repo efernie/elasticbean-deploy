@@ -3,6 +3,7 @@ var program = require('commander'),
     fs = require('fs'),
     Q = require('q'),
     _ = require('lodash'),
+    clc = require('cli-color'),
     winston = require('winston'),
     moment = require('moment'),
     AWS = require('aws-sdk'),
@@ -28,6 +29,7 @@ var s3Bucket = require('../lib/s3bucket');
 if ( fileExists ) {
   configFile = JSON.parse(fs.readFileSync(defaultFileName,'utf8'));
 
+  // should get ENV vars if wanted
   AWS.config.update({
     accessKeyId: configFile.aws.AccessKey,
     secretAccessKey: configFile.aws.SecretKey,
@@ -71,6 +73,7 @@ program
   .action( function ( env ) {
     var appName = configFile.app.ApplicationName;
     if ( fileExists ) {
+      // should move these into functions that can be accessed from any others incase
       application.checkApplication(elasticBeanstalk, appName)
         .then( function ( result ) {
           if ( result ) {
@@ -127,13 +130,19 @@ program
   .description('Deploy ebs application')
   .option('-e <name>')
   .action(function ( env ) {
+    var currentTime = moment().unix(),
+        versionLabel = '0.0.3', // should get this from package.json or use zip file name
+        keyName;
+
     if ( !program.environment ) {
       logger.error('Error: Need environment name flag -e or --environment to deploy unless default is set');
       return;
     } else {
-      var versionLabel = '0.0.1';
+      // should check if env is here for say staging then maybe?
+      // appEnvironment.checkEnv(elasticBeanstalk, configFile.app.ApplicationName, _.keys(configFile.app.Environments)[0] )
+      // need to remove previous zip file
       // envname -> _.keys(configFile.app.Environments)[0]
-      var keyName = moment().unix() + '-projectliger' + '.zip';
+      keyName = currentTime + configFile.app.ApplicationName + '.zip'; // either in config file or package.json
       s3Bucket.zipToBuffer('./', keyName)
         .then( function ( outputBuffer ) {
           var bucketParams = {
@@ -144,7 +153,7 @@ program
           };
           s3.putObject(bucketParams, function ( err, data ) {
             if ( err ) return logger.error(err);
-            console.log(data);
+            logger.info('Success Upload to S3 - ' + data.ETag);
             var params = {
               ApplicationName: configFile.app.ApplicationName,
               VersionLabel: versionLabel,
@@ -155,21 +164,42 @@ program
                 S3Key: keyName
               }
             };
+            // should check if version is already here if here append a letter to the version label
             elasticBeanstalk.createApplicationVersion(params, function ( err, data ) {
-              if ( err ) return logger.info('Error: ' + err);
-              logger.info(data);
-              // should check env
-              // // appEnvironment.checkEnv(elasticBeanstalk, configFile.app.ApplicationName, _.keys(configFile.app.Environments)[0] )
-              //
-              // need updateEnvironment but for zero downtime need to create one and switch cnames
-              appEnvironment.createEnv(elasticBeanstalk, configFile, versionLabel, program.environment)
-                .then( function ( result ) { return logger.info('All Done Initializing') })
-                .fail( function ( err ) { return logger.error(err) });
+              if ( err ) return logger.info('Error with Creating Application Version: ' + err);
+              logger.info('create app version', data);
+              // should check env and move this into another file
+              appEnvironment.checkEnv(elasticBeanstalk, configFile.app.ApplicationName, _.keys(configFile.app.Environments)[0] )
+                .then( function ( result ) {
+                  logger.info('Environment is Here - ' + result);
+                  if ( !result ) {
+                    logger.info('Creating Environment');
+                    appEnvironment.createEnv(elasticBeanstalk, configFile, versionLabel, program.environment, configFile.app.TemplateName)
+                      .then( function ( result ) { return logger.info('All Done Initializing') })
+                      .fail( function ( err ) { return logger.error(err) });
+                  } else {
+                    logger.info('Updating Environment');
+                    appEnvironment.updateEnvironment(elasticBeanstalk, configFile, versionLabel, program.environment, configFile.app.TemplateName)
+                      .then( function ( result ) { return logger.info('All Done Initializing updating') })
+                      .fail( function ( err ) { return logger.error(err.message) });
+                  }
+                  // need updateEnvironment but for zero downtime need to create one and switch cnames
+                })
+                .fail( function ( err ) {
+                  return logger.error(err);
+                })
 
             });
           })
         });
     }
+  });
+
+program
+  .command('zdtdeploy')
+  .description('Zero downtime deploy    *** Not Implimented yet ***')
+  .action( function () {
+    logger.error('Not Implimented yet');
   });
 
 program
@@ -200,7 +230,7 @@ program
     if ( fileExists ) {
       var params = {
         ApplicationName: configFile.app.ApplicationName,
-        EnvironmentName: 'Project-Liger-Prod',
+        EnvironmentName: 'Project-Liger-Prod', // this should be looped over each seperate env
         OptionSettings: []
       };
 
@@ -229,7 +259,7 @@ program
         ApplicationName: configFile.app.ApplicationName,
         SolutionStackName: configFile.app.AllEnvironments.SolutionStackName,
         OptionSettings: [],
-        TemplateName: 'Project-Liger'
+        TemplateName: configFile.app.TemplateName
       };
 
       appEnvironment.mapOptions(params, configFile)
@@ -247,7 +277,7 @@ program
 
 program
   .command('generateconfig')
-  .description('Generate Config File')
+  .description('Generate Config File    *** Not Implimented yet ***')
   .action( function ( env ) {
     // testing
     var params = {

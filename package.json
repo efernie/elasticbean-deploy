@@ -31,7 +31,8 @@
     "q": "^1.0.1",
     "winston": "^0.7.3",
     "moment": "^2.5.1",
-    "archiver": "^0.7.0"
+    "archiver": "^0.7.0",
+    "cli-color": "^0.2.3"
   },
   "devDependencies": {
     "chai": "^1.9.1",
