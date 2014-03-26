@@ -1,0 +1,59 @@
+{
+  "aws": {
+    "AccessKey": "aws-access-key",
+    "SecretKey": "aws-secret",
+    "Region": "us-east-1",
+    "Bucket": "some bucket name"
+  },
+  "app": {
+    "VersionsToKeep": 25,
+    "ApplicationName": "Some App Name",
+    "Description": "Description of your app",
+    "AllEnvironments": {
+      "SolutionStackName": "64bit Amazon Linux 2014.02 running Node.js",
+      "OptionSettings": {
+        "aws:autoscaling:launchconfiguration": {
+          "Ec2KeyName": "keyname",
+          "InstanceType": "t1.micro",
+          "IamInstanceProfile": "aws-elasticbeanstalk-ec2-role"
+        },
+        "aws:autoscaling:asg": {
+          "MinSize": 1,
+          "MaxSize": 4
+        },
+        "aws:elasticbeanstalk:application": {
+          "Application Healthcheck URL": "/"
+        },
+        "aws:elasticbeanstalk:hostmanager": {
+          "LogPublicationControl": true
+        },
+        "aws:elasticbeanstalk:container:nodejs": {
+          "NodeCommand": "npm start",
+          "ProxyServer": "none",
+          "GzipCompression": true
+        },
+        "aws:elb:policies": {
+          "Stickiness Policy": true
+        },
+        "aws:elasticbeanstalk:sns:topics": {
+          "Notification Endpoint": "name@email.com",
+          "Notification Protocol": "email"
+        }
+      }
+    },
+    "Environments": {
+      "Application-Prod": {
+        "CnamePrefix": "application-prod",
+        "OptionSettings": {
+          "aws:elasticbeanstalk:application:environment": {
+            "MYAPP_ENV_NAME": "production",
+            "NODE_ENV": "production"
+          },
+          "aws:autoscaling:launchconfiguration": {
+            "InstanceType": "t1.micro"
+          }
+        }
+      }
+    }
+  }
+}
