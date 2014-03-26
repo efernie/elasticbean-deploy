@@ -146,7 +146,7 @@ program
             };
             application.createApplication(elasticBeanstalk, params)
               .then( function ( result ) { /* move on */ })
-              .fail( function ( err ) { return winston.error(err) });
+              .fail( function ( err ) { return logger.error(err) });
           }
         })
         .fail( function ( err ) {
@@ -195,7 +195,7 @@ program
                 ContentType: 'application/zip'
               };
               s3.putObject(bucketParams, function ( err, data ) {
-                if ( err ) return winston.error(err);
+                if ( err ) return logger.error(err);
                 console.log(data);
                 var params = {
                   ApplicationName: configFile.app.ApplicationName,
@@ -211,8 +211,8 @@ program
                   if ( err ) return logger.info('Error: ' + err);
                   logger.info(data);
                   appEnvironment.createEnv(elasticBeanstalk, configFile, versionLabel, program.environment)
-                    .then( function ( result ) { return winston.info('All Done Initializing') })
-                    .fail( function ( err ) { return winston.error(err) });
+                    .then( function ( result ) { return logger.info('All Done Initializing') })
+                    .fail( function ( err ) { return logger.error(err) });
 
                 });
               })
@@ -284,7 +284,7 @@ program
         TemplateName: 'Project-Liger'
       };
 
-      appEnvironment.mapOptions(params)
+      appEnvironment.mapOptions(params, configFile)
         .then( function ( result ) {
           elasticBeanstalk.createConfigurationTemplate(result, function ( err, data ) {
             if ( err ) return logger.info('Error: ' + err);
@@ -301,7 +301,27 @@ program
   .command('generateconfig')
   .description('Generate Config File')
   .action( function ( env ) {
-
+    // testing
+    var params = {
+      ApplicationName: configFile.app.ApplicationName,
+      EnvironmentName: 'Project-Liger-Prod',
+      VersionLabel: '0.0.1',
+      TemplateName: 'Project-Liger',
+      OptionSettings: [
+        {
+          Namespace: 'Project-Liger-Production',
+          OptionName: 'CnamePrefix',
+          Value: 'project-liger-production'
+        },
+     //    { 'aws:elasticbeanstalk:application:environment': { MYAPP_ENV_NAME: 'production', NODE_ENV: 'production' },
+     // 'aws:autoscaling:launchconfiguration': { InstanceType: 't1.micro' } } }
+      ]
+    };
+    // appEnvironment.mapOptions(params, configFile.app.Environments)
+    //   .then( function ( result ) {
+    //     console.log(result.OptionSettings[1]);
+    //   })
+    //   .fail( function ( err ) { logger.error(err)})
   });
 
 // this needs to be last
