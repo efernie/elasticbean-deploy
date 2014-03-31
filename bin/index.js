@@ -73,23 +73,16 @@ program
   .action( function ( env ) {
     var appName = configFile.app.ApplicationName;
     if ( fileExists ) {
+      // need to loop over envs arr
       // should move these into functions that can be accessed from any others incase
       application.checkApplication(elasticBeanstalk, appName)
         .then( function ( result ) {
           if ( result ) {
-            // check then if not add config
-            appEnvironment.checkEnv(elasticBeanstalk, appName, _.keys(configFile.app.Environments)[0])
-              // appEnvironment.createConfigTemplate( elasticBeanstalk, configFile, 'Project-Ligers')
+            appEnvironment.initConfigs(elasticBeanstalk, configFile)
               .then( function ( result ) {
-                if ( result === true ) {
-                  return logger.info('Already Initialized');
-                } else {
-                  return logger.info('Initialized');
-                }
+                return logger.info(result);
               })
-              .fail( function ( err ) {
-                return logger.error('Error: ' + err);
-              })
+              .fail( function ( err ) { return logger.error(err) });
           } else {
             var params = {
               ApplicationName: configFile.app.ApplicationName,
@@ -97,17 +90,11 @@ program
             };
             application.createApplication(elasticBeanstalk, params)
               .then( function ( result ) {
-                appEnvironment.createConfigTemplate( elasticBeanstalk, configFile, _.keys(configFile.app.Environments)[0]) // Project-Liger
-                .then( function ( result ) {
-                  if ( result === true ) {
-                    return logger.info('Already Initialized');
-                  } else {
-                    return logger.info('Initialized');
-                  }
-                })
-                .fail( function ( err ) {
-                  return logger.error('Error: ' + err);
-                })
+                appEnvironment.initConfigs(elasticBeanstalk, configFile)
+                  .then( function ( result ) {
+                    return logger.info(result);
+                  })
+                  .fail( function ( err ) { return logger.error(err) });
               })
               .fail( function ( err ) { return logger.error(err) });
           }
@@ -131,29 +118,23 @@ program
   .option('-e <name>')
   .action(function ( env ) {
     var currentTime = moment().unix(),
-        versionLabel = '0.0.3', // should get this from package.json or use zip file name
+        versionLabel,// = '0.0.3', // should get this from package.json or use zip file name
         keyName;
 
+    packageJson = JSON.parse(fs.readFileSync('package.json','utf8'));
+
+    versionLabel = packageJson.version;
+    // should also check environment if in config file and on aws
     if ( !program.environment ) {
       logger.error('Error: Need environment name flag -e or --environment to deploy unless default is set');
       return;
     } else {
       // should check if env is here for say staging then maybe?
-      // appEnvironment.checkEnv(elasticBeanstalk, configFile.app.ApplicationName, _.keys(configFile.app.Environments)[0] )
-      // need to remove previous zip file
-      // envname -> _.keys(configFile.app.Environments)[0]
       keyName = currentTime + configFile.app.ApplicationName + '.zip'; // either in config file or package.json
-      s3Bucket.zipToBuffer('./', keyName)
-        .then( function ( outputBuffer ) {
-          var bucketParams = {
-            Bucket: configFile.aws.Bucket,
-            Key: keyName,
-            Body: outputBuffer,
-            ContentType: 'application/zip'
-          };
-          s3.putObject(bucketParams, function ( err, data ) {
-            if ( err ) return logger.error(err);
-            logger.info('Success Upload to S3 - ' + data.ETag);
+      s3Bucket.zipAndSave( s3, keyName, configFile)
+        .then( function ( saveResult ) {
+          logger.info('Saved properly');
+
             var params = {
               ApplicationName: configFile.app.ApplicationName,
               VersionLabel: versionLabel,
@@ -166,31 +147,53 @@ program
             };
             // should check if version is already here if here append a letter to the version label
             elasticBeanstalk.createApplicationVersion(params, function ( err, data ) {
-              if ( err ) return logger.info('Error with Creating Application Version: ' + err);
-              logger.info('create app version', data);
-              // should check env and move this into another file
-              appEnvironment.checkEnv(elasticBeanstalk, configFile.app.ApplicationName, _.keys(configFile.app.Environments)[0] )
-                .then( function ( result ) {
-                  logger.info('Environment is Here - ' + result);
-                  if ( !result ) {
-                    logger.info('Creating Environment');
-                    appEnvironment.createEnv(elasticBeanstalk, configFile, versionLabel, program.environment, configFile.app.TemplateName)
-                      .then( function ( result ) { return logger.info('All Done Initializing') })
-                      .fail( function ( err ) { return logger.error(err) });
-                  } else {
-                    logger.info('Updating Environment');
-                    appEnvironment.updateEnvironment(elasticBeanstalk, configFile, versionLabel, program.environment, configFile.app.TemplateName)
-                      .then( function ( result ) { return logger.info('All Done Initializing updating') })
-                      .fail( function ( err ) { return logger.error(err.message) });
-                  }
-                  // need updateEnvironment but for zero downtime need to create one and switch cnames
-                })
-                .fail( function ( err ) {
-                  return logger.error(err);
-                })
+              if ( err ) {
+                versionLabel + 'a';
+                // need to work on this
+
+                // should re upload with a different app version just atach a letter on the end ie: 0.0.1a
+                console.log(err);
+                return logger.info('Error with Creating Application Version: ' + err);
+              } else {
+                logger.info('Created app version: On:', data.DateCreated);
+                // should check env and move this into another file
+                appEnvironment.checkEnv(elasticBeanstalk, configFile.app.ApplicationName, program.environment )
+                  .then( function ( result ) {
+                    logger.info('Environment is Here - ' + result);
+                    if ( !result ) {
+                      logger.info('Creating Environment');
+                        // appEnvironment.createEnv(elasticBeanstalk, configFile, versionLabel, program.environment, configFile.app.TemplateName)
+                        appEnvironment.createEnv(elasticBeanstalk, configFile, versionLabel, program.environment, program.environment)
+                        .then( function ( result ) {
+                          // run check for env health using program.environment
+                          appEnvironment.checkEnvStatus(elasticBeanstalk, program.environment)
+                            .then( function ( finResult ) {
+                              return logger.info('Finished Deploying');
+                            }).fail( function ( err ) { return logger.error('ENV Health Status red')/* something might be wrong with your server*/ });
+                          // return logger.info('All Done Initializing');
+                        })
+                        .fail( function ( err ) { return logger.error('Error creating env: ' + err) });
+                    } else {
+                      logger.info('Updating Environment');
+                        // appEnvironment.updateEnvironment(elasticBeanstalk, configFile, versionLabel, program.environment, configFile.app.TemplateName)
+                        appEnvironment.updateEnvironment(elasticBeanstalk, configFile, versionLabel, program.environment, program.environment)
+                        .then( function ( result ) {
+                          appEnvironment.checkEnvStatus(elasticBeanstalk, program.environment)
+                            .then( function ( finResult ) {
+                              return logger.info('Finished Deploying');
+                            }).fail( function ( err ) { return logger.error('ENV Health Status red') });
+                          // return logger.info('All Done Initializing updating')
+                        })
+                        .fail( function ( err ) { return logger.error(err.message) });
+                    }
+                    // need updateEnvironment but for zero downtime need to create one and switch cnames
+                  })
+                  .fail( function ( err ) {
+                    return logger.error(err);
+                  })
+              }
 
             });
-          })
         });
     }
   });
@@ -200,6 +203,20 @@ program
   .description('Zero downtime deploy    *** Not Implimented yet ***')
   .action( function () {
     logger.error('Not Implimented yet');
+  });
+
+program
+  .command('checkenvhealth')
+  .description('Check ENV Health')
+  .action( function () {
+    if ( program.environment ) {
+      appEnvironment.checkEnvStatus(elasticBeanstalk, program.environment)
+        .then( function ( result ) {
+          logger.info('Health Check', result);
+        }).fail( function ( err ) { return logger.error( err )});
+    } else {
+      return logger.error('Error: Need environment name flag -e or --environment to deploy unless default is set')
+    }
   });
 
 program

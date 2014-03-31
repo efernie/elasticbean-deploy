@@ -10,17 +10,19 @@ This is very rough, I will be posting to npm soon. I will be writing tests also.
 Right now this is specifically for node.js deployments.
 
 ## Commands
+* This will be change to something more readable
 ```
   Usage: elasticbean-deploy [options] [command]
 
   Commands:
 
     init                   Initialize ebs application, config and creates the buckets
-    deploy [options] <cmd> Deploy ebs application
+    deploy [options]       Deploy ebs application
+    zdtdeploy              Zero downtime deploy    *** Not Implimented yet ***
     checkdns               Check if cname is avalible
     validate               Check if config settings are valid
     createtemplate         Create a Config template
-    generateconfig         Generate Config File
+    generateconfig         Generate Config File    *** Not Implimented yet ***
 
   Options:
 
