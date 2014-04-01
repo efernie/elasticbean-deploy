@@ -6,19 +6,21 @@
 This cli module was build to deploy node.js apps from the command line to Amazon's Elastic Beanstalk Environment. I specifically built this to work with codeship for continuous integration.
 
 # Warning
-This is very rough, I will be posting to npm soon. I will be writing tests also. I just wanted to get this working to get my enviornment set up for work. Also there are somethings speciffic to me testing this out so I wouldn't suggest using this right now
-Right now this is specifically for node.js deployments.
+This is very rough, I will be posting to npm soon. I will be writing tests also. I just wanted to get this working to get my environment set up for work. Also there are somethings specific to me testing this out so I wouldn't suggest using this right now
+right now this is specifically for node.js deployments.
 
 ## Commands
 * This will be change to something more readable
-```
+
+```shell
   Usage: elasticbean-deploy [options] [command]
 
   Commands:
 
     init                   Initialize ebs application, config and creates the buckets
     deploy [options]       Deploy ebs application
-    zdtdeploy              Zero downtime deploy    *** Not Implimented yet ***
+    zdtdeploy [options]    Zero downtime deploy
+    checkenvhealth         Check ENV Health
     checkdns               Check if cname is avalible
     validate               Check if config settings are valid
     createtemplate         Create a Config template
@@ -36,18 +38,26 @@ Right now this is specifically for node.js deployments.
  Examples:
 
    Initialize Application:
-     $ elasticbean-deploy init                         # Creates an application
-     $ elasticbean-deploy init -c somename.json        # Creates an application with different config file name
+     $ ebs-deploy init                         # Creates an application
+     $ ebs-deploy init -c somename.json        # Creates an application with different config file name
 
    Deploy Application:
-     $ elasticbean-deploy deploy -e <Environment Name> # Deploy application
+     $ ebs-deploy deploy -e <Environment Name> # Deploy application
+     $ ebs-deploy zdtdeploy -e <Environment Name> # Zero-Downtime Deploy application
+
 ```
+
+### Command Descriptions
+
+#### ```ebs-deploy init```
+This one
+
 
 ## Example Config File
 
 This is specifically node.js config
 
-```
+```javascript
 {
   "aws": {
     "AccessKey": "aws-access-key",
@@ -79,7 +89,7 @@ This is specifically node.js config
         },
         "aws:elasticbeanstalk:container:nodejs": {
           "NodeCommand": "npm start",
-          "ProxyServer": "none",
+          "ProxyServer": "none", // nginx or apache but nginx is recommended
           "GzipCompression": true
         },
         "aws:elb:policies": {
@@ -91,20 +101,34 @@ This is specifically node.js config
         }
       }
     },
-    "Environments": { // this is changing
-      "Application-Prod": { // config for you different environments
-        "CnamePrefix": "application-prod",
-        "OptionSettings": {
-          "aws:elasticbeanstalk:application:environment": {
-            "MYAPP_ENV_NAME": "production",
-            "NODE_ENV": "production"
-          },
-          "aws:autoscaling:launchconfiguration": {
-            "InstanceType": "t1.micro"
+    "environments": [
+      {
+        "envName": "Application-Prod" ,
+          "CnamePrefix": "application-prod",
+          "OptionSettings": {
+            "aws:elasticbeanstalk:application:environment": {
+              "MYAPP_ENV_NAME": "production",
+              "NODE_ENV": "production"
+            },
+            "aws:autoscaling:launchconfiguration": {
+              "InstanceType": "t1.micro" // You would probably want a little something bigger than a micro
+            }
           }
-        }
+      },
+      {
+        "envName": "Application-Staging",
+          "CnamePrefix": "application-staging",
+          "OptionSettings": {
+            "aws:elasticbeanstalk:application:environment": {
+              "MYAPP_ENV_NAME": "staging",
+              "NODE_ENV": "staging"
+            },
+            "aws:autoscaling:launchconfiguration": {
+              "InstanceType": "t1.micro"
+            }
+          }
       }
-    }
+    ]
   }
 }
 

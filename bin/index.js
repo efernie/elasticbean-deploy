@@ -51,11 +51,13 @@ program.on('--help', function () {
   console.log(' Examples:');
   console.log('');
   console.log('   Initialize Application:');
-  console.log('     $ elasticbean-deploy init                         # Creates an application');
-  console.log('     $ elasticbean-deploy init -c somename.json        # Creates an application with different config file name');
+  console.log('     $ ebs-deploy init                         # Creates an application');
+  console.log('     $ ebs-deploy init -c somename.json        # Creates an application with different config file name');
   console.log('');
   console.log('   Deploy Application:');
-  console.log('     $ elasticbean-deploy deploy -e <Environment Name> # Deploy application');
+  console.log('     $ ebs-deploy deploy -e <Environment Name> # Deploy application');
+  console.log('     $ ebs-deploy zdtdeploy -e <Environment Name> # Zero-Downtime Deploy application');
+  console.log('');
 });
 
 /**
@@ -196,9 +198,10 @@ program
 program
   .command('zdtdeploy')
   .description('Zero downtime deploy')
+  .option('-e <name>')
   .action( function () {
     var currentTime = moment().unix(),
-        oldEnvName = program.environment,
+        oldEnvName = program.environment + '-1', // temp
         newEnvName = program.environment + '-0', // should run a check for dns/cname
         versionLabel = JSON.parse(fs.readFileSync('package.json','utf8')).version,// should get this from package.json or use zip file name
         keyName;
@@ -244,7 +247,9 @@ program
                           .then( function ( swapResult ) {
                             appEnvironment.constantHealthCheck(elasticBeanstalk, newEnvName)
                               .then( function ( finSwapResult ) {
-                                return logger.info('Finished Deploying Updated Environment');
+                                appEnvironment.terminateEnv( elasticBeanstalk, oldEnvName)
+                                .then( function ( result ) { return logger.info('Finished Deploying Updated Environment') })
+                                // return logger.info('Finished Deploying Updated Environment');
                               }).fail( function ( err ) { throw new Error(err) });
                           })
                           .fail( function ( err ) { throw new Error(err) });
@@ -269,14 +274,6 @@ program
   .description('Check ENV Health')
   .action( function () {
     if ( program.environment ) {
-      // var oldEnvName = program.environment,
-      //     newEnvName = program.environment + '-1';
-      // appEnvironment.swapEnvNames( elasticBeanstalk, newEnvName, oldEnvName)
-      //   .then( function ( swapResult ) {
-      //     console.log('swap result:  ', swapResult);
-      //     return logger.info('Finished Deploying New Environment');
-      //   })
-      //   .fail( function ( err ) { throw new Error(err) });
       appEnvironment.checkEnvStatus(elasticBeanstalk, program.environment)
         .then( function ( result ) {
           if ( result ) {

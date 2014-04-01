@@ -14,7 +14,7 @@
   },
   "preferGlobal": "true",
   "bin": {
-    "elasticbean-deploy": "bin/index.js"
+    "ebs-deploy": "bin/index.js"
   },
   "keywords": [
     "elastic",
