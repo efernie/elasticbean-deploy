@@ -6,7 +6,7 @@
 This cli module was build to deploy node.js apps from the command line to Amazon's Elastic Beanstalk Environment. I specifically built this to work with codeship for continuous integration.
 
 # Warning
-This is very rough, I will be posting to npm soon. I will be writing tests also. I just wanted to get this working to get my environment set up for work. Also there are somethings specific to me testing this out so I wouldn't suggest using this right now
+This is very rough I will be writing tests also. I just wanted to get this working to get my environment set up for work. Also there are somethings specific to me testing this out so I wouldn't suggest using this right now
 right now this is specifically for node.js deployments.
 
 ## Commands
@@ -32,7 +32,7 @@ right now this is specifically for node.js deployments.
     -V, --version             output the version number
     -c, --config <file>       set config path. defaults to elasticconfig.json
     -n, --cname <name>        cname to check
-    -t --templatename <name>  set template name
+    -t  --templatename <name>  set template name
     -e, --environment <name>  set which environment name
 
  Examples:

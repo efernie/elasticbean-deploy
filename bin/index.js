@@ -44,7 +44,7 @@ program
   .version('0.0.1')
   .option('-c, --config <file>', 'set config path. defaults to ' + defaultFileName)
   .option('-n, --cname <name>', 'cname to check')
-  .option('-t --templatename <name>', 'set template name')
+  .option('-t  --templatename <name>', 'set template name')
   .option('-e, --environment <name>', 'set which environment name');
 
 program.on('--help', function () {
@@ -200,11 +200,13 @@ program
   .description('Zero downtime deploy')
   .option('-e <name>')
   .action( function () {
+    // also run a check if there is no env to swap with switch to regluar deploy
     var currentTime = moment().unix(),
-        oldEnvName = program.environment + '-1', // temp
+        oldEnvName = program.environment, // temp
         newEnvName = program.environment + '-0', // should run a check for dns/cname
         versionLabel = JSON.parse(fs.readFileSync('package.json','utf8')).version,// should get this from package.json or use zip file name
         keyName;
+
 
     // should also check environment if in config file and on aws
     if ( !program.environment ) {
@@ -233,7 +235,6 @@ program
                 // need to work on this
 
                 // should re upload with a different app version just attach a letter on the end ie: 0.0.1a
-                console.log(err);
                 return logger.info('Error with Creating Application Version: ' + err);
               } else {
                 logger.info('Created app version: On: ' + data.ApplicationVersion.DateCreated);
@@ -255,6 +256,8 @@ program
                           .fail( function ( err ) { throw new Error(err) });
                         // once new env is created switch old env to some name
                       }).fail( function ( err ) {
+                        // things seem to go red after a change to a server config file should
+                        // run another check as backup
                         // this might not mean what it is for this
                         return logger.error('ENV Health Status red');/* something might be wrong with your server*/
                       });
@@ -267,6 +270,40 @@ program
             });
         }).fail( function ( err ) { throw new Error(err) });
     }
+  });
+
+program
+  .command('updateconfig')
+  .description('Update Configuration File')
+  .action( function () {
+    var params = {
+      ApplicationName: 'Project-Liger',
+      TemplateName: 'Project-Liger-Staging',
+      OptionSettings: [
+        {
+          Namespace: 'aws:elb:loadbalancer',
+          OptionName: 'LoadBalancerPortProtocol',
+          Value: 'tcp'
+        },
+        {
+          Namespace: 'aws:elb:policies',
+          OptionName: 'Stickiness Policy',
+          Value: 'false'
+
+        }
+      ]//,
+      // OptionsToRemove: [
+      //   {
+      //     Namespace: 'STRING_VALUE',
+      //     OptionName: 'STRING_VALUE',
+      //   },
+      //   // ... more items ...
+      // ],
+    };
+    elasticBeanstalk.updateConfigurationTemplate(params, function ( err, data ) {
+      if (err) return console.log(err, err.stack);
+      console.log(data);
+    });
   });
 
 program
@@ -293,15 +330,15 @@ program
   .action( function ( env ) {
     var params = {};
     if ( !program.cname ) {
-      logger.error('Error: no name to check');
+      return logger.error('Error: no name to check');
     } else {
       params.CNAMEPrefix = program.cname;
       elasticBeanstalk.checkDNSAvailability(params)
-        .on('success', function (response) {
+        .on('success', function ( response ) {
           logger.info('CNAME is Avalible');
           logger.info('Will deploy as ' + response.data.FullyQualifiedCNAME );
         })
-        .on('error', function (response) {
+        .on('error', function ( response ) {
           return logger.error('Error: ' + response.message);
         })
         .send();
@@ -385,6 +422,14 @@ program
     //     console.log(result.OptionSettings[1]);
     //   })
     //   .fail( function ( err ) { logger.error(err)})
+  });
+
+program
+  .command('testzip')
+  .action( function () {
+    keyName = moment().unix() + configFile.app.ApplicationName + '.zip';
+    s3Bucket.zipToBuffer('./', keyName)
+      .then( function ( result ) { console.log('done'); });
   });
 
 // this needs to be last

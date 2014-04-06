@@ -1,6 +1,6 @@
 {
   "name": "elasticbean-deploy",
-  "version": "0.0.1",
+  "version": "0.0.1a",
   "description": "CLI tools to deploy applications to Elastic Beanstalk",
   "repository": {
     "type": "git",
