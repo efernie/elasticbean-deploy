@@ -3,6 +3,7 @@ var program = require('commander'),
     fs = require('fs'),
     Q = require('q'),
     _ = require('lodash'),
+    semver = require('semver'),
     clc = require('cli-color'),
     winston = require('winston'),
     moment = require('moment'),
@@ -222,6 +223,7 @@ program
           s3Bucket.zipAndSave( s3, keyName, configFile)
             .then( function ( saveResult ) {
               logger.info('Saved properly');
+              logger.info('Using Version: ' + versionLabel);
 
                 var params = {
                   ApplicationName: configFile.app.ApplicationName,
@@ -236,13 +238,15 @@ program
                 // should check if version is already here if here append a letter to the version label
                 elasticBeanstalk.createApplicationVersion(params, function ( err, data ) {
                   if ( err ) {
-                    versionLabel + 'a';
+                    // versionLabel + 'a';
+                    console.log(semver.inc(versionLabel, 'minor'));
                     // need to work on this
 
                     // should re upload with a different app version just attach a letter on the end ie: 0.0.1a
                     return logger.info('Error with Creating Application Version: ' + err);
                   } else {
                     logger.info('Created app version: On: ' + data.ApplicationVersion.DateCreated);
+                    logger.info('Using ENV name: ' + newEnvName);
                     // should check env and move this into another file
                     appEnvironment.createEnv(elasticBeanstalk, configFile, versionLabel, newEnvName, program.environment, true)
                       .then( function ( createResult ) {
@@ -253,14 +257,15 @@ program
                               .then( function ( swapResult ) {
                                 appEnvironment.constantHealthCheck(elasticBeanstalk, newEnvName)
                                   .then( function ( finSwapResult ) {
-                                    appEnvironment.terminateEnv( elasticBeanstalk, oldEnvName)
-                                    .then( function ( result ) {
-                                      appEnvironment.constantHealthCheckTerm(elasticBeanstalk, oldEnvName)
-                                        .then( function ( result ) {
-                                          logger.info('Old Env Terminated');
+                                    // maybe have this? might be overkill
+                                    // appEnvironment.terminateEnv( elasticBeanstalk, oldEnvName)
+                                    // .then( function ( result ) {
+                                    //   appEnvironment.constantHealthCheckTerm(elasticBeanstalk, oldEnvName)
+                                    //     .then( function ( result ) {
+                                    //       logger.info('Old Env Terminated');
                                           return logger.info('Finished Deploying Updated Environment');
-                                        }).fail( function ( err ) { throw new Error(err) });
-                                    })
+                                        // }).fail( function ( err ) { throw new Error(err) });
+                                    // })
                                   }).fail( function ( err ) { throw new Error(err) });
                               }).fail( function ( err ) { throw new Error(err) });
                             // once new env is created switch old env to some name
@@ -476,17 +481,15 @@ program
   .description('Generate Config File    *** Not Implimented yet ***')
   .action( function ( env ) {
     appEnvironment.zdtEnvCheck(elasticBeanstalk, configFile.app.ApplicationName, 'Project-Liger-Staging', configFile)
-      .then( function ( result ) {
-        // console.log(result);
-        // , Tier: { Name: 'Project-Liger-Staging-1' }
-        // elasticBeanstalk.updateEnvironment({ EnvironmentId: 'e-82hkxmzx32', EnvironmentName: 'Project-Liger-Staging-1'},
-        //   function ( err, data ) {
-        //   if (err) console.log(err);
-        //   console.log(data);
-        //   return logger.info('Finished Deploying Updated Environment');
-        // });
-      })
-      .fail( function ( err ) { console.log(err); });
+        .then( function ( newENVNameData ) {
+          oldEnvName = newENVNameData.current.envName;
+          newEnvName = newENVNameData.newENV.envName;
+          console.log(oldEnvName, newEnvName);
+        });
+    // appEnvironment.getAppVersions(elasticBeanstalk, configFile.app.ApplicationName, JSON.parse(fs.readFileSync('package.json','utf8')).version)
+    //   .then( function ( versionResult ) {
+    //     console.log(versionResult);
+    //   }).fail( function ( err ) { logger.error(err) });
   });
 
 // this needs to be last

@@ -32,7 +32,8 @@
     "winston": "^0.7.3",
     "moment": "^2.5.1",
     "archiver": "^0.7.0",
-    "cli-color": "^0.2.3"
+    "cli-color": "^0.2.3",
+    "semver": "^2.2.1"
   },
   "devDependencies": {
     "chai": "^1.9.1",
