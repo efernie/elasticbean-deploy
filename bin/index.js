@@ -68,6 +68,8 @@ program.on('--help', function () {
  *   2. Check if
  *
  *   last is create env with uploaded version to s3
+ *
+ *    SHould add node version from package.json file
  */
 program
   .command('init')
@@ -129,7 +131,7 @@ program
       return;
     } else {
       // should check if env is here for say staging then maybe?
-      keyName = currentTime + configFile.app.ApplicationName + '.zip'; // either in config file or package.json
+      keyName = currentTime + '_' + versionLabel + '_' + configFile.app.ApplicationName + '.zip'; // either in config file or package.json
       s3Bucket.zipAndSave( s3, keyName, configFile)
         .then( function ( saveResult ) {
           logger.info('Saved properly');
@@ -213,7 +215,7 @@ program
       return logger.error('Error: Need environment name flag -e or --environment to deploy unless default is set');
     } else {
       // should check if env is here for say staging then maybe?
-      keyName = currentTime + configFile.app.ApplicationName + '.zip'; // either in config file or package.json
+      keyName = currentTime + '_' + versionLabel + '_' + configFile.app.ApplicationName + '.zip'; // either in config file or package.json
       s3Bucket.zipAndSave( s3, keyName, configFile)
         .then( function ( saveResult ) {
           logger.info('Saved properly');
@@ -250,7 +252,6 @@ program
                               .then( function ( finSwapResult ) {
                                 appEnvironment.terminateEnv( elasticBeanstalk, oldEnvName)
                                 .then( function ( result ) { return logger.info('Finished Deploying Updated Environment') })
-                                // return logger.info('Finished Deploying Updated Environment');
                               }).fail( function ( err ) { throw new Error(err) });
                           })
                           .fail( function ( err ) { throw new Error(err) });
@@ -273,6 +274,64 @@ program
   });
 
 program
+  .command('zdtdeployy')
+  .description('Zero downtime deploy')
+  .option('-e <name>')
+  .action( function () {
+    // also run a check if there is no env to swap with switch to regluar deploy
+    var currentTime = moment().unix(),
+        oldEnvName = program.environment, // temp
+        newEnvName = program.environment + '-0', // should run a check for dns/cname
+        versionLabel = JSON.parse(fs.readFileSync('package.json','utf8')).version,// should get this from package.json or use zip file name
+        keyName;
+
+
+    // should also check environment if in config file and on aws
+    if ( !program.environment ) {
+      return logger.error('Error: Need environment name flag -e or --environment to deploy unless default is set');
+    } else {
+      // should check if env is here for say staging then maybe?
+      keyName = currentTime + configFile.app.ApplicationName + '.zip'; // either in config file or package.json
+      s3Bucket.zipAndSave( s3, keyName, configFile)
+        .then( function ( saveResult ) {
+          logger.info('Saved to S3 properly and removed zip from local');
+
+            // move this into a function to get passed result
+            var params = {
+              ApplicationName: configFile.app.ApplicationName,
+              VersionLabel: versionLabel,
+              AutoCreateApplication: true,
+              Description: configFile.app.Description,
+              SourceBundle: {
+                S3Bucket: configFile.aws.Bucket,
+                S3Key: keyName
+              }
+            };
+            // should check if version is already here if here append a letter to the version label
+            elasticBeanstalk.createApplicationVersion(params, function ( err, data ) {
+              if ( err ) {
+                versionLabel + 'a';
+                // need to work on this
+                // should re upload with a different app version just attach a letter on the end ie: 0.0.1a
+                return logger.info('Error with Creating Application Version: ' + err);
+              } else {
+                logger.info('Created app version: On: ' + data.ApplicationVersion.DateCreated);
+                // should check env and move this into another file
+                appEnvironment.createEnv(elasticBeanstalk, configFile, versionLabel, newEnvName, program.environment, true)
+                  .then( appEnvironment.constantHealthCheck(elasticBeanstalk, newEnvName) )
+                  .then( appEnvironment.swapEnvNames( elasticBeanstalk, newEnvName, oldEnvName) )
+                  .then( appEnvironment.constantHealthCheck(elasticBeanstalk, newEnvName) )
+                  .then( appEnvironment.terminateEnv( elasticBeanstalk, oldEnvName) )
+                  .then( function ( result ) { return logger.info('Finished Deploying Updated Environment') })
+                  .fail( function ( err ) { throw new Error(err); })
+              }
+
+            });
+        }).fail( function ( err ) { throw new Error(err) });
+    }
+  });
+
+program
   .command('updateconfig')
   .description('Update Configuration File')
   .action( function () {
@@ -283,7 +342,12 @@ program
         {
           Namespace: 'aws:elb:loadbalancer',
           OptionName: 'LoadBalancerPortProtocol',
-          Value: 'tcp'
+          Value: 'TCP'
+        },
+        {
+          Namespace: 'aws:elb:loadbalancer',
+          OptionName: 'LoadBalancerHTTPPort',
+          Value: '80'
         },
         {
           Namespace: 'aws:elb:policies',
@@ -291,7 +355,7 @@ program
           Value: 'false'
 
         }
-      ]//,
+      ],
       // OptionsToRemove: [
       //   {
       //     Namespace: 'STRING_VALUE',
@@ -401,27 +465,7 @@ program
   .command('generateconfig')
   .description('Generate Config File    *** Not Implimented yet ***')
   .action( function ( env ) {
-    // testing
-    var params = {
-      ApplicationName: configFile.app.ApplicationName,
-      EnvironmentName: 'Project-Liger-Prod',
-      VersionLabel: '0.0.1',
-      TemplateName: 'Project-Liger',
-      OptionSettings: [
-        {
-          Namespace: 'Project-Liger-Production',
-          OptionName: 'CnamePrefix',
-          Value: 'project-liger-production'
-        },
-     //    { 'aws:elasticbeanstalk:application:environment': { MYAPP_ENV_NAME: 'production', NODE_ENV: 'production' },
-     // 'aws:autoscaling:launchconfiguration': { InstanceType: 't1.micro' } } }
-      ]
-    };
-    // appEnvironment.mapOptions(params, configFile.app.Environments)
-    //   .then( function ( result ) {
-    //     console.log(result.OptionSettings[1]);
-    //   })
-    //   .fail( function ( err ) { logger.error(err)})
+
   });
 
 program
@@ -434,10 +478,3 @@ program
 
 // this needs to be last
 program.parse(process.argv);
-
-// use validate?? maybe
-function checkFile ( fileName ) {
-  var deferred = Q.defer();
-
-  return deferred.promise;
-}
