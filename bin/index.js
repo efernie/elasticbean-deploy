@@ -204,72 +204,82 @@ program
   .action( function () {
     // also run a check if there is no env to swap with switch to regluar deploy
     var currentTime = moment().unix(),
-        oldEnvName = program.environment, // temp
-        newEnvName = program.environment + '-0', // should run a check for dns/cname
-        versionLabel = JSON.parse(fs.readFileSync('package.json','utf8')).version,// should get this from package.json or use zip file name
-        keyName;
+        versionLabel = JSON.parse(fs.readFileSync('package.json','utf8')).version, // should get this from package.json or use zip file name
+        oldEnvName, newEnvName, keyName;
 
 
     // should also check environment if in config file and on aws
     if ( !program.environment ) {
       return logger.error('Error: Need environment name flag -e or --environment to deploy unless default is set');
     } else {
-      // should check if env is here for say staging then maybe?
-      keyName = currentTime + '_' + versionLabel + '_' + configFile.app.ApplicationName + '.zip'; // either in config file or package.json
-      s3Bucket.zipAndSave( s3, keyName, configFile)
-        .then( function ( saveResult ) {
-          logger.info('Saved properly');
+      appEnvironment.zdtEnvCheck(elasticBeanstalk, configFile.app.ApplicationName, program.environment, configFile)
+        .then( function ( newENVNameData ) {
+          oldEnvName = newENVNameData.current.envName;
+          newEnvName = newENVNameData.newENV.envName;
 
-            var params = {
-              ApplicationName: configFile.app.ApplicationName,
-              VersionLabel: versionLabel,
-              AutoCreateApplication: true,
-              Description: configFile.app.Description,
-              SourceBundle: {
-                S3Bucket: configFile.aws.Bucket,
-                S3Key: keyName
-              }
-            };
-            // should check if version is already here if here append a letter to the version label
-            elasticBeanstalk.createApplicationVersion(params, function ( err, data ) {
-              if ( err ) {
-                versionLabel + 'a';
-                // need to work on this
+          // should check if env is here for say staging then maybe?
+          keyName = currentTime + '_' + versionLabel + '_' + configFile.app.ApplicationName + '.zip'; // either in config file or package.json
+          s3Bucket.zipAndSave( s3, keyName, configFile)
+            .then( function ( saveResult ) {
+              logger.info('Saved properly');
 
-                // should re upload with a different app version just attach a letter on the end ie: 0.0.1a
-                return logger.info('Error with Creating Application Version: ' + err);
-              } else {
-                logger.info('Created app version: On: ' + data.ApplicationVersion.DateCreated);
-                // should check env and move this into another file
-                appEnvironment.createEnv(elasticBeanstalk, configFile, versionLabel, newEnvName, program.environment, true)
-                  .then( function ( createResult ) {
-                    // console.log('create result ', createResult.newCNAME);
-                    appEnvironment.constantHealthCheck(elasticBeanstalk, newEnvName)
-                      .then( function ( finResult ) {
-                        appEnvironment.swapEnvNames( elasticBeanstalk, newEnvName, oldEnvName)
-                          .then( function ( swapResult ) {
-                            appEnvironment.constantHealthCheck(elasticBeanstalk, newEnvName)
-                              .then( function ( finSwapResult ) {
-                                appEnvironment.terminateEnv( elasticBeanstalk, oldEnvName)
-                                .then( function ( result ) { return logger.info('Finished Deploying Updated Environment') })
+                var params = {
+                  ApplicationName: configFile.app.ApplicationName,
+                  VersionLabel: versionLabel,
+                  AutoCreateApplication: true,
+                  Description: configFile.app.Description,
+                  SourceBundle: {
+                    S3Bucket: configFile.aws.Bucket,
+                    S3Key: keyName
+                  }
+                };
+                // should check if version is already here if here append a letter to the version label
+                elasticBeanstalk.createApplicationVersion(params, function ( err, data ) {
+                  if ( err ) {
+                    versionLabel + 'a';
+                    // need to work on this
+
+                    // should re upload with a different app version just attach a letter on the end ie: 0.0.1a
+                    return logger.info('Error with Creating Application Version: ' + err);
+                  } else {
+                    logger.info('Created app version: On: ' + data.ApplicationVersion.DateCreated);
+                    // should check env and move this into another file
+                    appEnvironment.createEnv(elasticBeanstalk, configFile, versionLabel, newEnvName, program.environment, true)
+                      .then( function ( createResult ) {
+                        // console.log('create result ', createResult.newCNAME);
+                        appEnvironment.constantHealthCheck(elasticBeanstalk, newEnvName)
+                          .then( function ( finResult ) {
+                            appEnvironment.swapEnvNames( elasticBeanstalk, newEnvName, oldEnvName)
+                              .then( function ( swapResult ) {
+                                appEnvironment.constantHealthCheck(elasticBeanstalk, newEnvName)
+                                  .then( function ( finSwapResult ) {
+                                    appEnvironment.terminateEnv( elasticBeanstalk, oldEnvName)
+                                    .then( function ( result ) {
+                                      appEnvironment.constantHealthCheckTerm(elasticBeanstalk, oldEnvName)
+                                        .then( function ( result ) {
+                                          logger.info('Old Env Terminated');
+                                          return logger.info('Finished Deploying Updated Environment');
+                                        }).fail( function ( err ) { throw new Error(err) });
+                                    })
+                                  }).fail( function ( err ) { throw new Error(err) });
                               }).fail( function ( err ) { throw new Error(err) });
-                          })
-                          .fail( function ( err ) { throw new Error(err) });
-                        // once new env is created switch old env to some name
-                      }).fail( function ( err ) {
-                        // things seem to go red after a change to a server config file should
-                        // run another check as backup
-                        // this might not mean what it is for this
-                        return logger.error('ENV Health Status red');/* something might be wrong with your server*/
+                            // once new env is created switch old env to some name
+                          }).fail( function ( err ) {
+                            // things seem to go red after a change to a server config file should
+                            // run another check as backup
+                            // this might not mean what it is for this
+                            return logger.error('ENV Health Status red');/* something might be wrong with your server*/
+                          });
+                      })
+                      .fail( function ( err ) {
+                        throw new Error(err);
                       });
-                  })
-                  .fail( function ( err ) {
-                    throw new Error(err);
-                  });
-              }
+                  }
 
-            });
-        }).fail( function ( err ) { throw new Error(err) });
+                });
+            }).fail( function ( err ) { throw new Error(err) });
+
+        }).fail( function ( err ) { return logger.error(err) });
     }
   });
 
@@ -465,15 +475,18 @@ program
   .command('generateconfig')
   .description('Generate Config File    *** Not Implimented yet ***')
   .action( function ( env ) {
-
-  });
-
-program
-  .command('testzip')
-  .action( function () {
-    keyName = moment().unix() + configFile.app.ApplicationName + '.zip';
-    s3Bucket.zipToBuffer('./', keyName)
-      .then( function ( result ) { console.log('done'); });
+    appEnvironment.zdtEnvCheck(elasticBeanstalk, configFile.app.ApplicationName, 'Project-Liger-Staging', configFile)
+      .then( function ( result ) {
+        // console.log(result);
+        // , Tier: { Name: 'Project-Liger-Staging-1' }
+        // elasticBeanstalk.updateEnvironment({ EnvironmentId: 'e-82hkxmzx32', EnvironmentName: 'Project-Liger-Staging-1'},
+        //   function ( err, data ) {
+        //   if (err) console.log(err);
+        //   console.log(data);
+        //   return logger.info('Finished Deploying Updated Environment');
+        // });
+      })
+      .fail( function ( err ) { console.log(err); });
   });
 
 // this needs to be last
