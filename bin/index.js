@@ -258,14 +258,14 @@ program
                                 appEnvironment.constantHealthCheck(elasticBeanstalk, newEnvName)
                                   .then( function ( finSwapResult ) {
                                     // maybe have this? might be overkill
-                                    // appEnvironment.terminateEnv( elasticBeanstalk, oldEnvName)
-                                    // .then( function ( result ) {
+                                    appEnvironment.terminateEnv( elasticBeanstalk, oldEnvName)
+                                      .then( function ( result ) {
                                     //   appEnvironment.constantHealthCheckTerm(elasticBeanstalk, oldEnvName)
                                     //     .then( function ( result ) {
                                     //       logger.info('Old Env Terminated');
                                           return logger.info('Finished Deploying Updated Environment');
                                         // }).fail( function ( err ) { throw new Error(err) });
-                                    // })
+                                    })
                                   }).fail( function ( err ) { throw new Error(err) });
                               }).fail( function ( err ) { throw new Error(err) });
                             // once new env is created switch old env to some name
