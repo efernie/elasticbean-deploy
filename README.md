@@ -5,6 +5,9 @@
 
 This cli module was build to deploy node.js apps from the command line to Amazon's Elastic Beanstalk Environment. I specifically built this to work with codeship for continuous integration.
 
+# Install
+```npm install -g elasticbean-deploy```
+
 # Warning
 This is very rough I will be writing tests also. I just wanted to get this working to get my environment set up for work. Also there are somethings specific to me testing this out so I wouldn't suggest using this right now
 right now this is specifically for node.js deployments.
